@@ -305,9 +305,11 @@ class GitstoreManager {
         await exec('git', args, { cwd, env: this.gitEnv });
     }
 
-    async syncDirectory(relativeDir) {
+    async syncDirectory(relativeDir, { refreshBeforeSync = true } = {}) {
         await this.ensureInitialized([relativeDir]);
-        await this.ensureWorkingCopies([relativeDir]);
+        if (refreshBeforeSync) {
+            await this.ensureWorkingCopies([relativeDir]);
+        }
 
         const workingPath = this.resolveWorkingPath(relativeDir);
         const localPath = this.resolveLocalPath(relativeDir);
@@ -379,8 +381,8 @@ export function getGitstoreManager() {
     return gitstoreManager;
 }
 
-export async function syncDirectoryInStore(relativeDir) {
-    return gitstoreManager.syncDirectory(relativeDir);
+export async function syncDirectoryInStore(relativeDir, options) {
+    return gitstoreManager.syncDirectory(relativeDir, options);
 }
 
 export async function syncAllInStore({

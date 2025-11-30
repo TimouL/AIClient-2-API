@@ -1177,7 +1177,7 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
                 }
             }
 
-            await syncDirectoryInStore('configs');
+            await syncDirectoryInStore('configs', { refreshBeforeSync: false });
             CONFIG.GITSTORE_STATE = getGitstoreState();
             
             // 广播更新事件
