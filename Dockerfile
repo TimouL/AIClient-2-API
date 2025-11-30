@@ -2,6 +2,9 @@
 # 选择20-alpine版本以满足undici包的要求（需要Node.js >=20.18.1）
 FROM node:20-alpine
 
+# 安装 git 与证书以支持 gitstore 持久化
+RUN apk add --no-cache git ca-certificates
+
 # 设置标签
 LABEL maintainer="AIClient2API Team"
 LABEL description="Docker image for AIClient2API server"
