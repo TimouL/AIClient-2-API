@@ -1159,7 +1159,24 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
                 return true;
             }
             
-            await fs.unlink(fullPath);
+            await ensureGitstoreInitialized(['configs', 'pwd']);
+            await ensureGitstoreWorkingCopies(['configs', 'pwd']);
+
+            const deleteTargets = [fullPath];
+            const dataDir = path.resolve('data');
+            deleteTargets.push(path.join(dataDir, relativePath));
+            deleteTargets.push(path.join(dataDir, 'gitstore', relativePath));
+
+            for (const target of deleteTargets) {
+                try {
+                    await fs.rm(target, { recursive: true, force: true });
+                } catch (err) {
+                    if (err.code !== 'ENOENT') {
+                        throw err;
+                    }
+                }
+            }
+
             await syncDirectoryInStore('configs');
             CONFIG.GITSTORE_STATE = getGitstoreState();
             
