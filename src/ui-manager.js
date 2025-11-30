@@ -8,7 +8,7 @@ import { getAllProviderModels, getProviderModels } from './provider-models.js';
 import { CONFIG } from './config-manager.js';
 import { serviceInstances } from './adapter.js';
 import { initApiService } from './service-manager.js';
-import { writeJsonToStore, getGitstoreState, ensureGitstoreWorkingCopies, syncDirectoryInStore, ensureGitstoreInitialized, syncAllInStore } from './gitstore-manager.js';
+import { writeJsonToStore, getGitstoreState, ensureGitstoreWorkingCopies, syncDirectoryInStore, ensureGitstoreInitialized, syncAllInStore, readJsonFromStore } from './gitstore-manager.js';
 
 // Token存储到本地文件中
 const TOKEN_STORE_FILE = 'token-store.json';
@@ -728,14 +728,14 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
             providerConfig.lastErrorTime = providerConfig.lastErrorTime || null;
 
             const filePath = currentConfig.PROVIDER_POOLS_FILE_PATH || 'provider_pools.json';
+            await ensureGitstoreInitialized([filePath]);
+            await ensureGitstoreWorkingCopies([filePath]);
+
             let providerPools = {};
-            
-            // Load existing pools
-            if (existsSync(filePath)) {
-                try {
-                    const fileContent = readFileSync(filePath, 'utf8');
-                    providerPools = JSON.parse(fileContent);
-                } catch (readError) {
+            try {
+                providerPools = await readJsonFromStore(filePath);
+            } catch (readError) {
+                if (readError.code !== 'ENOENT') {
                     console.warn('[UI API] Failed to read existing provider pools:', readError.message);
                 }
             }
@@ -746,8 +746,9 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
             }
             providerPools[providerType].push(providerConfig);
 
-            // Save to file
-            writeFileSync(filePath, JSON.stringify(providerPools, null, 2), 'utf8');
+            // Save via gitstore
+            await writeJsonToStore(filePath, providerPools);
+            CONFIG.GITSTORE_STATE = getGitstoreState();
             console.log(`[UI API] Added new provider to ${providerType}: ${providerConfig.uuid}`);
 
             // Update provider pool manager if available
@@ -805,18 +806,16 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
             }
 
             const filePath = currentConfig.PROVIDER_POOLS_FILE_PATH || 'provider_pools.json';
+            await ensureGitstoreInitialized([filePath]);
+            await ensureGitstoreWorkingCopies([filePath]);
+
             let providerPools = {};
-            
-            // Load existing pools
-            if (existsSync(filePath)) {
-                try {
-                    const fileContent = readFileSync(filePath, 'utf8');
-                    providerPools = JSON.parse(fileContent);
-                } catch (readError) {
-                    res.writeHead(404, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: { message: 'Provider pools file not found' } }));
-                    return true;
-                }
+            try {
+                providerPools = await readJsonFromStore(filePath);
+            } catch (readError) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: { message: 'Provider pools file not found' } }));
+                return true;
             }
 
             // Find and update the provider
@@ -843,8 +842,9 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
 
             providerPools[providerType][providerIndex] = updatedProvider;
 
-            // Save to file
-            writeFileSync(filePath, JSON.stringify(providerPools, null, 2), 'utf8');
+            // Save via gitstore
+            await writeJsonToStore(filePath, providerPools);
+            CONFIG.GITSTORE_STATE = getGitstoreState();
             console.log(`[UI API] Updated provider ${providerUuid} in ${providerType}`);
 
             // Update provider pool manager if available
@@ -883,18 +883,16 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
 
         try {
             const filePath = currentConfig.PROVIDER_POOLS_FILE_PATH || 'provider_pools.json';
+            await ensureGitstoreInitialized([filePath]);
+            await ensureGitstoreWorkingCopies([filePath]);
+
             let providerPools = {};
-            
-            // Load existing pools
-            if (existsSync(filePath)) {
-                try {
-                    const fileContent = readFileSync(filePath, 'utf8');
-                    providerPools = JSON.parse(fileContent);
-                } catch (readError) {
-                    res.writeHead(404, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: { message: 'Provider pools file not found' } }));
-                    return true;
-                }
+            try {
+                providerPools = await readJsonFromStore(filePath);
+            } catch (readError) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: { message: 'Provider pools file not found' } }));
+                return true;
             }
 
             // Find and remove the provider
@@ -915,8 +913,9 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
                 delete providerPools[providerType];
             }
 
-            // Save to file
-            writeFileSync(filePath, JSON.stringify(providerPools, null, 2), 'utf8');
+            // Save via gitstore
+            await writeJsonToStore(filePath, providerPools);
+            CONFIG.GITSTORE_STATE = getGitstoreState();
             console.log(`[UI API] Deleted provider ${providerUuid} from ${providerType}`);
 
             // Update provider pool manager if available
@@ -957,18 +956,16 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
 
         try {
             const filePath = currentConfig.PROVIDER_POOLS_FILE_PATH || 'provider_pools.json';
+            await ensureGitstoreInitialized([filePath]);
+            await ensureGitstoreWorkingCopies([filePath]);
+
             let providerPools = {};
-            
-            // Load existing pools
-            if (existsSync(filePath)) {
-                try {
-                    const fileContent = readFileSync(filePath, 'utf8');
-                    providerPools = JSON.parse(fileContent);
-                } catch (readError) {
-                    res.writeHead(404, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: { message: 'Provider pools file not found' } }));
-                    return true;
-                }
+            try {
+                providerPools = await readJsonFromStore(filePath);
+            } catch (readError) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: { message: 'Provider pools file not found' } }));
+                return true;
             }
 
             // Find and update the provider
@@ -985,8 +982,9 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
             const provider = providers[providerIndex];
             provider.isDisabled = action === 'disable';
             
-            // Save to file
-            writeFileSync(filePath, JSON.stringify(providerPools, null, 2), 'utf8');
+            // Save via gitstore
+            await writeJsonToStore(filePath, providerPools);
+            CONFIG.GITSTORE_STATE = getGitstoreState();
             console.log(`[UI API] ${action === 'disable' ? 'Disabled' : 'Enabled'} provider ${providerUuid} in ${providerType}`);
 
             // Update provider pool manager if available
@@ -1161,8 +1159,9 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
                 return true;
             }
             
-            
             await fs.unlink(fullPath);
+            await syncDirectoryInStore('configs');
+            CONFIG.GITSTORE_STATE = getGitstoreState();
             
             // 广播更新事件
             broadcastEvent('config_update', {
