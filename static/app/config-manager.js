@@ -27,7 +27,7 @@ function updateGitstoreBadge(state) {
         cls = 'error';
     }
 
-    const detail = branch ? ` · 分支 ${branch}` : '';
+    const detail = branch ? ` ·  ${branch}` : '';
     badge.className = `status-badge gitstore-badge ${cls}`;
     badge.innerHTML = `<i class="${icon}"></i> <span class="status-text">${text}${detail}${pending && mode !== 'ACTIVE' ? '（挂起）' : ''}</span>`;
     if (state?.error) {
