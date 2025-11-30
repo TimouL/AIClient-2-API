@@ -135,10 +135,13 @@ class FileUploadHandler {
 
             // 使用封装接口发送上传请求
             const result = await window.apiClient.upload('/upload-oauth-credentials', formData);
-            
-            // 成功上传，设置文件路径到输入框
-            this.setFilePathToInput(targetInputId, result.filePath);
-            showToast('文件上传成功', 'success');
+            const filePath = (result && typeof result === 'object') ? result.filePath : (typeof result === 'string' ? result : undefined);
+            if (!filePath) {
+                showToast('文件上传成功，但未返回文件路径', 'error');
+            } else {
+                this.setFilePathToInput(targetInputId, filePath);
+                showToast('文件上传成功', 'success');
+            }
 
         } catch (error) {
             console.error('文件上传错误:', error);
