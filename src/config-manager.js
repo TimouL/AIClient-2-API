@@ -62,8 +62,8 @@ function normalizeConfiguredProviders(config) {
 export async function initializeConfig(args = process.argv.slice(2), configFilePath = 'config.json') {
     let currentConfig = {};
 
-    await ensureGitstoreInitialized([configFilePath, 'provider_pools.json', 'pwd']);
-    await ensureGitstoreWorkingCopies([configFilePath, 'provider_pools.json', 'pwd']);
+    await ensureGitstoreInitialized([configFilePath, 'provider_pools.json', 'pwd', 'configs']);
+    await ensureGitstoreWorkingCopies([configFilePath, 'provider_pools.json', 'pwd', 'configs']);
 
     try {
         currentConfig = await readJsonFromStore(configFilePath);

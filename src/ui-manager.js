@@ -8,7 +8,7 @@ import { getAllProviderModels, getProviderModels } from './provider-models.js';
 import { CONFIG } from './config-manager.js';
 import { serviceInstances } from './adapter.js';
 import { initApiService } from './service-manager.js';
-import { writeJsonToStore, getGitstoreState, ensureGitstoreWorkingCopies } from './gitstore-manager.js';
+import { writeJsonToStore, getGitstoreState, ensureGitstoreWorkingCopies, syncDirectoryInStore } from './gitstore-manager.js';
 
 // Token存储到本地文件中
 const TOKEN_STORE_FILE = 'token-store.json';
@@ -434,6 +434,9 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
                 await fs.rename(tempFilePath, targetFilePath);
                 
                 const relativePath = path.relative(process.cwd(), targetFilePath);
+
+                // 同步整个 configs 目录到 gitstore
+                await syncDirectoryInStore('configs');
 
                 // 广播更新事件
                 broadcastEvent('config_update', {

@@ -6,7 +6,7 @@ import { promisify } from 'util';
 
 const exec = promisify(execFile);
 
-const DEFAULT_FILES = ['config.json', 'provider_pools.json', 'pwd'];
+const DEFAULT_FILES = ['config.json', 'provider_pools.json', 'pwd', 'configs'];
 const DEFAULT_BRANCH = process.env.GITSTORE_GIT_BRANCH || 'main';
 
 const REQUIRED_ENV = ['GITSTORE_GIT_URL', 'GITSTORE_GIT_USERNAME', 'GITSTORE_GIT_TOKEN'];
@@ -102,11 +102,22 @@ class GitstoreManager {
                 continue;
             }
 
-            const content = await fs.readFile(source);
-            await this._writeFile(workingPath, content);
-            await this._writeFile(localPath, content);
-            if (this.mode !== 'LOCAL') {
-                await this._writeFile(gitPath, content);
+            const sourceStat = await fs.stat(source);
+            const isDir = sourceStat.isDirectory();
+
+            if (isDir) {
+                await this._copyPath(source, workingPath);
+                await this._copyPath(source, localPath);
+                if (this.mode !== 'LOCAL') {
+                    await this._copyPath(source, gitPath);
+                }
+            } else {
+                const content = await fs.readFile(source);
+                await this._writeFile(workingPath, content);
+                await this._writeFile(localPath, content);
+                if (this.mode !== 'LOCAL') {
+                    await this._writeFile(gitPath, content);
+                }
             }
         }
 
@@ -162,6 +173,11 @@ class GitstoreManager {
         await fs.mkdir(path.dirname(filePath), { recursive: true });
         const encoding = Buffer.isBuffer(content) ? undefined : 'utf8';
         await fs.writeFile(filePath, content, encoding);
+    }
+
+    async _copyPath(fromPath, toPath) {
+        await fs.mkdir(path.dirname(toPath), { recursive: true });
+        await fs.cp(fromPath, toPath, { recursive: true });
     }
 
     async _prepareGitEnv() {
@@ -279,6 +295,47 @@ class GitstoreManager {
     async _runGit(args, cwd) {
         await exec('git', args, { cwd, env: this.gitEnv });
     }
+
+    async syncDirectory(relativeDir) {
+        await this.ensureInitialized([relativeDir]);
+        await this.ensureWorkingCopies([relativeDir]);
+
+        const workingPath = this.resolveWorkingPath(relativeDir);
+        const localPath = this.resolveLocalPath(relativeDir);
+        const gitPath = this.resolveGitPath(relativeDir);
+
+        if (!existsSync(workingPath)) {
+            return this.getState();
+        }
+
+        // Mirror to local copy
+        await this._copyPath(workingPath, localPath);
+
+        if (this.mode === 'LOCAL') {
+            this.pending = false;
+            return this.getState();
+        }
+
+        await this._copyPath(workingPath, gitPath);
+        await this._stageFiles([relativeDir]);
+
+        const hasChanges = await this._hasStagedChanges();
+        if (hasChanges) {
+            await this._commit();
+        }
+
+        const pushed = await this._pushWithRetry(hasChanges || this.pending);
+        if (!pushed) {
+            this.mode = 'DEGRADED';
+            this.pending = true;
+        } else {
+            this.mode = 'ACTIVE';
+            this.pending = false;
+            this.error = null;
+        }
+
+        return this.getState();
+    }
 }
 
 const gitstoreManager = new GitstoreManager();
@@ -309,4 +366,8 @@ export async function writeJsonToStore(relativePath, data) {
 
 export function getGitstoreManager() {
     return gitstoreManager;
+}
+
+export async function syncDirectoryInStore(relativeDir) {
+    return gitstoreManager.syncDirectory(relativeDir);
 }
