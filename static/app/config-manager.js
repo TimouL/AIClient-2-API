@@ -4,6 +4,33 @@ import { showToast, formatUptime } from './utils.js';
 import { handleProviderChange, handleGeminiCredsTypeChange, handleKiroCredsTypeChange } from './event-handlers.js';
 import { loadProviders } from './provider-manager.js';
 
+function updateGitstoreBadge(state) {
+    const badge = document.getElementById('gitstoreStatus');
+    if (!badge) return;
+    const mode = state?.mode || 'LOCAL';
+    const pending = !!state?.pending;
+    const branch = state?.branch || 'main';
+    let text = 'Git 存储：本地模式';
+    let cls = 'local';
+
+    if (mode === 'ACTIVE') {
+        text = pending ? 'Git 存储：同步中' : 'Git 存储：正常';
+        cls = 'ok';
+    } else if (mode === 'DEGRADED') {
+        text = 'Git 存储：待同步';
+        cls = 'degraded';
+    }
+
+    const detail = branch ? ` · 分支 ${branch}` : '';
+    badge.className = `status-badge gitstore-badge ${cls}`;
+    badge.innerHTML = `<i class="fas fa-database"></i> <span class="status-text">${text}${detail}${pending && mode !== 'ACTIVE' ? '（挂起）' : ''}</span>`;
+    if (state?.error) {
+        badge.title = state.error;
+    } else {
+        badge.removeAttribute('title');
+    }
+}
+
 /**
  * 加载配置
  */
@@ -87,6 +114,8 @@ async function loadConfiguration() {
         if (cronRefreshTokenEl) cronRefreshTokenEl.checked = data.CRON_REFRESH_TOKEN || false;
         if (providerPoolsFilePathEl) providerPoolsFilePathEl.value = data.PROVIDER_POOLS_FILE_PATH;
         if (maxErrorCountEl) maxErrorCountEl.value = data.MAX_ERROR_COUNT || 3;
+
+        updateGitstoreBadge(data.gitstoreState || data.GITSTORE_STATE);
 
         // 触发提供商配置显示
         handleProviderChange();
@@ -193,7 +222,10 @@ async function saveConfiguration() {
     config.MAX_ERROR_COUNT = parseInt(document.getElementById('maxErrorCount')?.value || 3);
 
     try {
-        await window.apiClient.post('/config', config);
+        const resp = await window.apiClient.post('/config', config);
+        if (resp?.gitstoreState) {
+            updateGitstoreBadge(resp.gitstoreState);
+        }
         await window.apiClient.post('/reload-config');
         showToast('配置已保存', 'success');
         

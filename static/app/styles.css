@@ -89,6 +89,18 @@ body {
     animation: pulse 2s infinite;
 }
 
+.gitstore-badge.ok i {
+    color: var(--success-color);
+}
+
+.gitstore-badge.degraded i {
+    color: #f59e0b;
+}
+
+.gitstore-badge.local i {
+    color: var(--text-secondary);
+}
+
 .status-badge.error i {
     color: var(--danger-color);
 }
