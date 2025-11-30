@@ -8,6 +8,7 @@ import { getAllProviderModels, getProviderModels } from './provider-models.js';
 import { CONFIG } from './config-manager.js';
 import { serviceInstances } from './adapter.js';
 import { initApiService } from './service-manager.js';
+import { writeJsonToStore, getGitstoreState } from './gitstore-manager.js';
 
 // Token存储到本地文件中
 const TOKEN_STORE_FILE = 'token-store.json';
@@ -480,7 +481,8 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
             ...currentConfig,
-            systemPrompt
+            systemPrompt,
+            gitstoreState: currentConfig.GITSTORE_STATE || getGitstoreState()
         }));
         return true;
     }
@@ -570,8 +572,9 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
                     MAX_ERROR_COUNT: currentConfig.MAX_ERROR_COUNT
                 };
 
-                writeFileSync(configPath, JSON.stringify(configToSave, null, 2), 'utf-8');
-                console.log('[UI API] Configuration saved to config.json');
+                await writeJsonToStore(configPath, configToSave);
+                CONFIG.GITSTORE_STATE = getGitstoreState();
+                console.log(`[UI API] Configuration saved via gitstore (${CONFIG.GITSTORE_STATE.mode}${CONFIG.GITSTORE_STATE.pending ? ' pending' : ''})`);
                 
                 // 广播更新事件
                 broadcastEvent('config_update', {
@@ -599,7 +602,8 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
             res.end(JSON.stringify({
                 success: true,
                 message: 'Configuration updated successfully',
-                details: 'Configuration has been updated in both memory and config.json file'
+                details: 'Configuration has been updated in both memory and config.json file',
+                gitstoreState: CONFIG.GITSTORE_STATE || getGitstoreState()
             }));
             return true;
         } catch (error) {

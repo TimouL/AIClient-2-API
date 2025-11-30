@@ -1,9 +1,16 @@
 import * as fs from 'fs';
 import { promises as pfs } from 'fs';
 import { INPUT_SYSTEM_PROMPT_FILE, MODEL_PROVIDER } from './common.js';
+import {
+    ensureGitstoreInitialized,
+    ensureGitstoreWorkingCopies,
+    readJsonFromStore,
+    getGitstoreState
+} from './gitstore-manager.js';
 
 export let CONFIG = {}; // Make CONFIG exportable
 export let PROMPT_LOG_FILENAME = ''; // Make PROMPT_LOG_FILENAME exportable
+export let GITSTORE_STATE = {}; // Expose gitstore state
 
 const ALL_MODEL_PROVIDERS = Object.values(MODEL_PROVIDER);
 
@@ -55,10 +62,12 @@ function normalizeConfiguredProviders(config) {
 export async function initializeConfig(args = process.argv.slice(2), configFilePath = 'config.json') {
     let currentConfig = {};
 
+    await ensureGitstoreInitialized([configFilePath, 'provider_pools.json']);
+    await ensureGitstoreWorkingCopies([configFilePath, 'provider_pools.json']);
+
     try {
-        const configData = fs.readFileSync(configFilePath, 'utf8');
-        currentConfig = JSON.parse(configData);
-        console.log('[Config] Loaded configuration from config.json');
+        currentConfig = await readJsonFromStore(configFilePath);
+        console.log(`[Config] Loaded configuration from ${configFilePath}`);
     } catch (error) {
         console.error('[Config Error] Failed to load config.json:', error.message);
         // Fallback to default values if config.json is not found or invalid
@@ -275,8 +284,7 @@ export async function initializeConfig(args = process.argv.slice(2), configFileP
     }
     if (currentConfig.PROVIDER_POOLS_FILE_PATH) {
         try {
-            const poolsData = await pfs.readFile(currentConfig.PROVIDER_POOLS_FILE_PATH, 'utf8');
-            currentConfig.providerPools = JSON.parse(poolsData);
+            currentConfig.providerPools = await readJsonFromStore(currentConfig.PROVIDER_POOLS_FILE_PATH);
             console.log(`[Config] Loaded provider pools from ${currentConfig.PROVIDER_POOLS_FILE_PATH}`);
         } catch (error) {
             console.error(`[Config Error] Failed to load provider pools from ${currentConfig.PROVIDER_POOLS_FILE_PATH}: ${error.message}`);
@@ -297,7 +305,10 @@ export async function initializeConfig(args = process.argv.slice(2), configFileP
     }
 
     // Assign to the exported CONFIG
+    GITSTORE_STATE = getGitstoreState();
+    currentConfig.GITSTORE_STATE = GITSTORE_STATE;
     Object.assign(CONFIG, currentConfig);
+    CONFIG.GITSTORE_STATE = GITSTORE_STATE;
     return CONFIG;
 }
 

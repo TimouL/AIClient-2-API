@@ -1,6 +1,13 @@
-import * as fs from 'fs'; // Import fs module
+import path from 'path';
 import { getServiceAdapter } from './adapter.js';
 import { MODEL_PROVIDER } from './common.js';
+import {
+    ensureGitstoreInitialized,
+    ensureGitstoreWorkingCopies,
+    readJsonFromStore,
+    writeJsonToStore,
+    getGitstoreState
+} from './gitstore-manager.js';
 
 /**
  * Manages a pool of API service providers, handling their health and selection.
@@ -443,18 +450,22 @@ export class ProviderPoolManager {
         this.saveTimer = null;
         
         try {
-            const filePath = this.globalConfig.PROVIDER_POOLS_FILE_PATH || 'provider_pools.json';
+            const configuredPath = this.globalConfig.PROVIDER_POOLS_FILE_PATH || 'provider_pools.json';
+            const relativePath = path.isAbsolute(configuredPath)
+                ? path.relative(process.cwd(), configuredPath)
+                : configuredPath;
+
+            await ensureGitstoreInitialized([relativePath]);
+            await ensureGitstoreWorkingCopies([relativePath]);
+
             let currentPools = {};
-            
-            // 一次性读取文件
             try {
-                const fileContent = await fs.promises.readFile(filePath, 'utf8');
-                currentPools = JSON.parse(fileContent);
+                currentPools = await readJsonFromStore(relativePath);
             } catch (readError) {
                 if (readError.code === 'ENOENT') {
-                    this._log('info', 'provider_pools.json does not exist, creating new file.');
+                    this._log('info', `${relativePath} does not exist, creating new file.`);
                 } else {
-                    throw readError;
+                    this._log('warn', `Failed to load existing provider pools, resetting file: ${readError.message}`);
                 }
             }
 
@@ -462,7 +473,6 @@ export class ProviderPoolManager {
             for (const providerType of typesToSave) {
                 if (this.providerStatus[providerType]) {
                     currentPools[providerType] = this.providerStatus[providerType].map(p => {
-                        // Convert Date objects to ISOString if they exist
                         const config = { ...p.config };
                         if (config.lastUsed instanceof Date) {
                             config.lastUsed = config.lastUsed.toISOString();
@@ -476,10 +486,10 @@ export class ProviderPoolManager {
                     this._log('warn', `Attempted to save unknown providerType: ${providerType}`);
                 }
             }
-            
-            // 一次性写入文件
-            await fs.promises.writeFile(filePath, JSON.stringify(currentPools, null, 2), 'utf8');
-            this._log('info', `provider_pools.json updated successfully for types: ${typesToSave.join(', ')}`);
+
+            await writeJsonToStore(relativePath, currentPools);
+            const state = getGitstoreState();
+            this._log('info', `provider_pools.json updated (gitstore ${state.mode}${state.pending ? ' pending' : ''}) for types: ${typesToSave.join(', ')}`);
         } catch (error) {
             this._log('error', `Failed to write provider_pools.json: ${error.message}`);
         }
