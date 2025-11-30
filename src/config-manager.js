@@ -5,7 +5,9 @@ import {
     ensureGitstoreInitialized,
     ensureGitstoreWorkingCopies,
     readJsonFromStore,
-    getGitstoreState
+    getGitstoreState,
+    writeJsonToStore,
+    syncDirectoryInStore
 } from './gitstore-manager.js';
 
 export let CONFIG = {}; // Make CONFIG exportable
@@ -302,6 +304,26 @@ export async function initializeConfig(args = process.argv.slice(2), configFileP
         PROMPT_LOG_FILENAME = `${currentConfig.PROMPT_LOG_BASE_NAME}-${timestamp}.log`;
     } else {
         PROMPT_LOG_FILENAME = ''; // Clear if not logging to file
+    }
+
+    // Gitstore 引导：远端缺少文件时用当前配置填充并推送
+    try {
+        const state = getGitstoreState();
+        if (state.mode !== 'LOCAL') {
+            await writeJsonToStore(configFilePath, currentConfig);
+            if (currentConfig.PROVIDER_POOLS_FILE_PATH) {
+                await writeJsonToStore(currentConfig.PROVIDER_POOLS_FILE_PATH, currentConfig.providerPools || {});
+            }
+            // 同步 configs 目录（若存在）
+            try {
+                await pfs.access('configs');
+                await syncDirectoryInStore('configs');
+            } catch (err) {
+                // 目录不存在时忽略
+            }
+        }
+    } catch (err) {
+        console.warn('[Config] Gitstore bootstrap skipped:', err.message);
     }
 
     // Assign to the exported CONFIG
