@@ -8,7 +8,7 @@ import { getAllProviderModels, getProviderModels } from './provider-models.js';
 import { CONFIG } from './config-manager.js';
 import { serviceInstances } from './adapter.js';
 import { initApiService } from './service-manager.js';
-import { writeJsonToStore, getGitstoreState } from './gitstore-manager.js';
+import { writeJsonToStore, getGitstoreState, ensureGitstoreWorkingCopies } from './gitstore-manager.js';
 
 // Token存储到本地文件中
 const TOKEN_STORE_FILE = 'token-store.json';
@@ -123,6 +123,7 @@ async function cleanupExpiredTokens() {
  */
 async function readPasswordFile() {
     try {
+        await ensureGitstoreWorkingCopies(['pwd']);
         const password = await fs.readFile('./pwd', 'utf8');
         return password.trim();
     } catch (error) {

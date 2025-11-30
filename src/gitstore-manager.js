@@ -6,7 +6,7 @@ import { promisify } from 'util';
 
 const exec = promisify(execFile);
 
-const DEFAULT_FILES = ['config.json', 'provider_pools.json'];
+const DEFAULT_FILES = ['config.json', 'provider_pools.json', 'pwd'];
 const DEFAULT_BRANCH = process.env.GITSTORE_GIT_BRANCH || 'main';
 
 const REQUIRED_ENV = ['GITSTORE_GIT_URL', 'GITSTORE_GIT_USERNAME', 'GITSTORE_GIT_TOKEN'];
