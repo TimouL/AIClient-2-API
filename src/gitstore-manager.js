@@ -108,14 +108,14 @@ class GitstoreManager {
             if (isDir) {
                 await this._copyPath(source, workingPath);
                 await this._copyPath(source, localPath);
-                if (this.mode !== 'LOCAL') {
+                if (this.mode !== 'LOCAL' && path.resolve(source) !== path.resolve(gitPath)) {
                     await this._copyPath(source, gitPath);
                 }
             } else {
                 const content = await fs.readFile(source);
                 await this._writeFile(workingPath, content);
                 await this._writeFile(localPath, content);
-                if (this.mode !== 'LOCAL') {
+                if (this.mode !== 'LOCAL' && path.resolve(source) !== path.resolve(gitPath)) {
                     await this._writeFile(gitPath, content);
                 }
             }
@@ -176,6 +176,9 @@ class GitstoreManager {
     }
 
     async _copyPath(fromPath, toPath) {
+        if (path.resolve(fromPath) === path.resolve(toPath)) {
+            return;
+        }
         await fs.mkdir(path.dirname(toPath), { recursive: true });
         await fs.cp(fromPath, toPath, { recursive: true });
     }
@@ -322,7 +325,9 @@ class GitstoreManager {
             return this.getState();
         }
 
-        await this._copyPath(workingPath, gitPath);
+        if (path.resolve(workingPath) !== path.resolve(gitPath)) {
+            await this._copyPath(workingPath, gitPath);
+        }
         await this._stageFiles([relativeDir]);
 
         const hasChanges = await this._hasStagedChanges();
