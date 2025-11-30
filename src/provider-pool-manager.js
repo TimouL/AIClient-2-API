@@ -20,7 +20,8 @@ export class ProviderPoolManager {
         'claude-custom': 'claude-3-7-sonnet-20250219',
         'kiro-api': 'claude-3-7-sonnet-20250219',
         'qwen-api': 'qwen3-coder-flash',
-        'openai-custom-responses': 'gpt-5-low'
+        'openai-custom-responses': 'gpt-5-low',
+        'openai-qwen-oauth': 'qwen3-coder-flash'
     };
 
     constructor(providerPools, options = {}) {

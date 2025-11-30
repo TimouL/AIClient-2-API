@@ -192,12 +192,18 @@ class GitstoreManager {
         ].join('\n');
         await fs.writeFile(askPassPath, script, { mode: 0o700 });
         this.askPassPath = askPassPath;
+        const gitUser = process.env.GITSTORE_GIT_USERNAME || 'gitstore';
+        const gitEmail = `${gitUser}@local`;
         return {
             ...process.env,
             GIT_ASKPASS: askPassPath,
             GIT_TERMINAL_PROMPT: '0',
             GITSTORE_GIT_USERNAME: process.env.GITSTORE_GIT_USERNAME,
-            GITSTORE_GIT_TOKEN: process.env.GITSTORE_GIT_TOKEN
+            GITSTORE_GIT_TOKEN: process.env.GITSTORE_GIT_TOKEN,
+            GIT_AUTHOR_NAME: gitUser,
+            GIT_COMMITTER_NAME: gitUser,
+            GIT_AUTHOR_EMAIL: gitEmail,
+            GIT_COMMITTER_EMAIL: gitEmail
         };
     }
 
