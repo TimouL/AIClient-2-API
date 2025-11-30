@@ -8,7 +8,7 @@ import { getAllProviderModels, getProviderModels } from './provider-models.js';
 import { CONFIG } from './config-manager.js';
 import { serviceInstances } from './adapter.js';
 import { initApiService } from './service-manager.js';
-import { writeJsonToStore, getGitstoreState, ensureGitstoreWorkingCopies, syncDirectoryInStore, ensureGitstoreInitialized } from './gitstore-manager.js';
+import { writeJsonToStore, getGitstoreState, ensureGitstoreWorkingCopies, syncDirectoryInStore, ensureGitstoreInitialized, syncAllInStore } from './gitstore-manager.js';
 
 // Token存储到本地文件中
 const TOKEN_STORE_FILE = 'token-store.json';
@@ -1229,18 +1229,15 @@ export async function handleUIApiRequests(method, pathParam, req, res, currentCo
 
     if (method === 'POST' && pathParam === '/api/gitstore-sync') {
         try {
-            await ensureGitstoreInitialized();
-            await ensureGitstoreWorkingCopies(['config.json', 'provider_pools.json', 'pwd', 'configs']);
-
-            // 推送当前配置与号池（保持单提交策略）
-            await writeJsonToStore('config.json', currentConfig);
             const poolsPath = currentConfig.PROVIDER_POOLS_FILE_PATH || 'provider_pools.json';
-            if (providerPoolManager?.providerPools) {
-                await writeJsonToStore(poolsPath, providerPoolManager.providerPools);
-            }
-            await syncDirectoryInStore('configs');
-
-            const state = getGitstoreState();
+            const state = await syncAllInStore({
+                configPath: 'config.json',
+                configData: currentConfig,
+                providerPoolsPath: poolsPath,
+                providerPoolsData: providerPoolManager?.providerPools || {},
+                includeConfigsDir: true,
+                includePwd: true
+            });
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true, gitstoreState: state }));
             return true;

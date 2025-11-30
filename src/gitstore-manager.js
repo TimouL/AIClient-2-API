@@ -371,3 +371,40 @@ export function getGitstoreManager() {
 export async function syncDirectoryInStore(relativeDir) {
     return gitstoreManager.syncDirectory(relativeDir);
 }
+
+export async function syncAllInStore({
+    configPath = 'config.json',
+    configData,
+    providerPoolsPath = 'provider_pools.json',
+    providerPoolsData = {},
+    includeConfigsDir = true,
+    includePwd = true
+} = {}) {
+    await gitstoreManager.ensureInitialized([configPath, providerPoolsPath]);
+    const targets = [configPath, providerPoolsPath];
+    if (includePwd) targets.push('pwd');
+    if (includeConfigsDir) targets.push('configs');
+    await gitstoreManager.ensureWorkingCopies(targets);
+
+    try {
+        await gitstoreManager.writeJson(configPath, configData ?? {});
+        await gitstoreManager.writeJson(providerPoolsPath, providerPoolsData ?? {});
+        if (includeConfigsDir) {
+            try {
+                await fs.access('configs');
+                await gitstoreManager.syncDirectory('configs');
+            } catch (err) {
+                // configs 不存在时忽略
+            }
+        }
+        if (includePwd && existsSync('pwd')) {
+            const pwdContent = await fs.readFile('pwd', 'utf8');
+            await gitstoreManager.writeJson('pwd', pwdContent);
+        }
+    } catch (err) {
+        gitstoreManager.mode = gitstoreManager.mode === 'ACTIVE' ? 'DEGRADED' : gitstoreManager.mode;
+        gitstoreManager.error = err?.message || String(err);
+    }
+
+    return gitstoreManager.getState();
+}
