@@ -12,6 +12,7 @@ function updateGitstoreBadge(state) {
     const branch = state?.branch || 'main';
     let text = 'Git 存储：本地模式';
     let cls = 'local';
+    let icon = 'fas fa-database';
 
     if (mode === 'ACTIVE') {
         text = pending ? 'Git 存储：同步中' : 'Git 存储：正常';
@@ -21,14 +22,38 @@ function updateGitstoreBadge(state) {
         cls = 'degraded';
     }
 
+    if (state?.error) {
+        icon = 'fas fa-exclamation-triangle';
+        cls = 'error';
+    }
+
     const detail = branch ? ` · 分支 ${branch}` : '';
     badge.className = `status-badge gitstore-badge ${cls}`;
-    badge.innerHTML = `<i class="fas fa-database"></i> <span class="status-text">${text}${detail}${pending && mode !== 'ACTIVE' ? '（挂起）' : ''}</span>`;
+    badge.innerHTML = `<i class="${icon}"></i> <span class="status-text">${text}${detail}${pending && mode !== 'ACTIVE' ? '（挂起）' : ''}</span>`;
     if (state?.error) {
         badge.title = state.error;
     } else {
         badge.removeAttribute('title');
     }
+
+    // 点击待同步/降级状态触发同步
+    badge.style.cursor = (mode === 'DEGRADED' || pending || state?.error) ? 'pointer' : 'default';
+    badge.onclick = async () => {
+        if (!(mode === 'DEGRADED' || pending || state?.error)) return;
+        try {
+            badge.classList.add('loading');
+            const resp = await window.apiClient.post('/gitstore-sync', {});
+            if (resp?.gitstoreState) {
+                updateGitstoreBadge(resp.gitstoreState);
+            }
+            showToast('Git 存储已同步', 'success');
+        } catch (err) {
+            console.error('Gitstore sync failed', err);
+            showToast('Git 存储同步失败: ' + (err?.message || '未知错误'), 'error');
+        } finally {
+            badge.classList.remove('loading');
+        }
+    };
 }
 
 /**

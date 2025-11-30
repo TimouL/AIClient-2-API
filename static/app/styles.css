@@ -101,6 +101,15 @@ body {
     color: var(--text-secondary);
 }
 
+.gitstore-badge.error i {
+    color: var(--danger-color);
+}
+
+.gitstore-badge.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
 .status-badge.error i {
     color: var(--danger-color);
 }
